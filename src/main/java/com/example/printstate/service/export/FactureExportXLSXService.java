@@ -1,0 +1,110 @@
+package com.example.printstate.service.export;
+
+import com.example.printstate.entity.Client;
+import com.example.printstate.entity.Facture;
+import com.example.printstate.entity.LigneFacture;
+import com.example.printstate.repository.ClientRepository;
+import com.example.printstate.repository.FactureRepository;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.stereotype.Service;
+
+import java.io.IOException;
+import java.io.OutputStream;
+
+@Service
+public class FactureExportXLSXService {
+
+    private final ClientRepository clientRepository;
+    private final FactureRepository factureRepository;
+
+    public FactureExportXLSXService(ClientRepository clientRepository, FactureRepository factureRepository) {
+        this.clientRepository = clientRepository;
+        this.factureRepository = factureRepository;
+    }
+
+    public void export(Long idClient, OutputStream outputStream) throws IOException {
+        //TODO
+    }
+
+    public void export(OutputStream outputStream) throws IOException {
+        Workbook workbook = new XSSFWorkbook();
+
+        for (Client client : clientRepository.findAll()) {
+            int nbFactures = client.getFactures().size();
+            if (nbFactures > 0) {
+                Sheet sheetClient = workbook.createSheet(client.getNom() + " " + client.getPrenom());
+                Row rowNom = sheetClient.createRow(0);
+                Cell cellHeaderNom = rowNom.createCell(0);
+                cellHeaderNom.setCellValue("Nom");
+
+                Cell cellNom = rowNom.createCell(1);
+                cellNom.setCellValue(client.getNom());
+
+                Row rowIdFactures = sheetClient.createRow(3);
+                Cell cellFacture = rowIdFactures.createCell(0);
+                cellFacture.setCellValue(nbFactures + " facture(s) :");
+                int iColIdFacture = 1;
+                for (Facture facture : client.getFactures()) {
+                    Cell cellFactureId = rowIdFactures.createCell(iColIdFacture++);
+                    cellFactureId.setCellValue(facture.getId());
+                }
+
+                for (Facture facture : client.getFactures()) {
+                    createSheetFacture(workbook, facture);
+                }
+            }
+            //...
+        }
+
+        //...
+        workbook.write(outputStream);
+        workbook.close();
+    }
+
+    private void createSheetFacture(Workbook workbook, Facture facture) {
+        Sheet sheetFacture = workbook.createSheet("Facture n " + facture.getId());
+
+        Row rowHeader = sheetFacture.createRow(0);
+        Cell cellHeaderDesignation = rowHeader.createCell(0);
+        cellHeaderDesignation.setCellValue("Désignation");
+        Cell cellHeaderQte = rowHeader.createCell(1);
+        cellHeaderQte.setCellValue("Quantité");
+        Cell cellHeaderPrixUnit = rowHeader.createCell(2);
+        cellHeaderPrixUnit.setCellValue("Prix unitaire");
+        //..
+        int iRow = 1;
+        for (LigneFacture ligneFacture : facture.getLigneFactures()) {
+            Row row = sheetFacture.createRow(iRow++);
+            Cell cellDesignation = row.createCell(0);
+            cellDesignation.setCellValue(ligneFacture.getArticle().getLibelle());
+
+            Cell cellQte = row.createCell(1);
+            cellQte.setCellValue(ligneFacture.getQuantite());
+
+            Cell cellPrixUnit = row.createCell(2);
+            cellPrixUnit.setCellValue(ligneFacture.getArticle().getPrix());
+        }
+
+        //total calculer le total de la facture
+        int iRowTotal = iRow++;
+        Row rowTotal = sheetFacture.createRow(iRowTotal);
+        Cell cellTotalLibelle = rowTotal.createCell(0);
+        cellTotalLibelle.setCellValue("TOTAL");
+
+        sheetFacture.addMergedRegion(new CellRangeAddress(iRowTotal, iRowTotal, 0, 1));
+
+        CellStyle styleTotalLibelle = workbook.createCellStyle();
+        styleTotalLibelle.setAlignment(HorizontalAlignment.RIGHT);
+        Font fontTotalLibelle = workbook.createFont();
+        fontTotalLibelle.setBold(true);
+        styleTotalLibelle.setFont(fontTotalLibelle);
+        cellTotalLibelle.setCellStyle(styleTotalLibelle);
+
+        Cell cellTotalValue = rowTotal.createCell(2);
+        cellTotalValue.setCellValue(facture.getTotal());
+
+    }
+
+}
